@@ -16,7 +16,13 @@ function draw() {
   
   // 第三步：將影像對齊模式設定為中心，並顯示在正中間，寬高為畫布的 50%
   imageMode(CENTER);
-  image(capture, width / 2, height / 2, width * 0.5, height * 0.5);
+  
+  // 解決左右顛倒問題：使用 push/pop 與 translate/scale 來水平翻轉影像
+  push();
+  translate(width / 2, height / 2); // 將畫布原點移至畫面中心
+  scale(-1, 1);                     // 水平翻轉 (X軸乘上 -1)
+  image(capture, 0, 0, width * 0.5, height * 0.5); // 因為原點已在中心，座標改設為 0, 0
+  pop();
 }
 
 // 當視窗大小改變時，自動調整畫布以維持全螢幕
