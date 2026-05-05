@@ -41,7 +41,7 @@ function draw() {
   if (predictions.length > 0 && capture.width > 0) {
     let keypoints = predictions[0].keypoints;
     
-    stroke(255, 0, 0); // 設定線條為紅色
+    stroke(255, 255, 0); // 設定線條為黃色
     strokeWeight(1);   // 設定線條粗細為 1
     
     // 利用 line 指令將點位依序串接在一起
