@@ -42,12 +42,13 @@ function setup() {
   }
   // 產生海草資料
   for (let i = 0; i < 25; i++) {
-    let numSegs = floor(random(5, 12));
+    let numSegs = floor(random(4, 7)); // 減少節數，讓海草變矮
     let segments = [];
+    let baseOffset = random(TWO_PI); // 整株海草的基準擺動相位
     for (let j = 0; j < numSegs; j++) {
       segments.push({
-        length: random(30, 60),
-        offset: random(TWO_PI)
+        length: random(15, 30), // 縮短每一節的長度
+        offset: baseOffset + j * 0.4 // 讓相鄰節有規律的相位差，產生平滑波浪
       });
     }
     seaweeds.push({
@@ -117,7 +118,8 @@ function draw() {
       curveVertex(cx, cy);
       for (let i = 0; i < s.segments.length; i++) {
         let seg = s.segments[i];
-        let wobble = sin(frameCount * 0.02 + seg.offset) * ((i + 1) * 6);
+        // 加快一點點擺動速度，並調整擺動幅度讓它自然且規律
+        let wobble = sin(frameCount * 0.03 + seg.offset) * ((i + 1) * 4);
         cx = s.x + wobble;
         cy -= seg.length;
         curveVertex(cx, cy);
@@ -183,23 +185,19 @@ function draw() {
     let yFirst2 = map(pFirst2.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLast2, yLast2, xFirst2, yFirst2);
 
-    // 畫出包含 247 的眼睛外圍 (黑眼圈效果)
-    stroke(100, 100, 100, 150); // 設定線條為深灰色且帶有半透明
-    strokeWeight(10);        // 線條粗細改為 10
-    drawingContext.shadowBlur = 15; // 增加模糊效果
-    drawingContext.shadowColor = '#555555'; // 陰影也改為深灰色，避免太黑
-    
+    // 畫出包含 247 的眼睛外圍
+    stroke(0); // 設定線條為黑色
+    strokeWeight(1.5); // 線條粗細改為 1.5
     for (let i = 0; i < eyeOuterIndices.length - 1; i++) {
       let p1 = keypoints[eyeOuterIndices[i]];
       let p2 = keypoints[eyeOuterIndices[i + 1]];
-      
       let x1 = map(p1.x, 0, capture.width, -width * 0.25, width * 0.25);
       let y1 = map(p1.y, 0, capture.height, -height * 0.25, height * 0.25);
       let x2 = map(p2.x, 0, capture.width, -width * 0.25, width * 0.25);
       let y2 = map(p2.y, 0, capture.height, -height * 0.25, height * 0.25);
       line(x1, y1, x2, y2);
     }
-    // 將外圍最後一個點連回第一個點，形成一個封閉的輪廓
+    // 將外圍最後一個點連回第一個點
     let pLastOuter = keypoints[eyeOuterIndices[eyeOuterIndices.length - 1]];
     let pFirstOuter = keypoints[eyeOuterIndices[0]];
     let xLastOuter = map(pLastOuter.x, 0, capture.width, -width * 0.25, width * 0.25);
@@ -207,6 +205,49 @@ function draw() {
     let xFirstOuter = map(pFirstOuter.x, 0, capture.width, -width * 0.25, width * 0.25);
     let yFirstOuter = map(pFirstOuter.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLastOuter, yLastOuter, xFirstOuter, yFirstOuter);
+
+    // --- 新增：畫出右眼 20 根三角形眼睫毛 ---
+    let cxRight = 0, cyRight = 0;
+    for (let i = 0; i < eyeOuterIndices.length; i++) {
+      let p = keypoints[eyeOuterIndices[i]];
+      cxRight += map(p.x, 0, capture.width, -width * 0.25, width * 0.25);
+      cyRight += map(p.y, 0, capture.height, -height * 0.25, height * 0.25);
+    }
+    cxRight /= eyeOuterIndices.length; // 計算右眼中心點 X
+    cyRight /= eyeOuterIndices.length; // 計算右眼中心點 Y
+
+    fill(0);    // 睫毛填滿黑色
+    noStroke(); // 睫毛不加邊框，避免三角形失真
+    for (let i = 0; i < 25; i++) {
+      // 利用內插法均勻找出外圍 25 個分佈點
+      let t = i * (eyeOuterIndices.length / 25);
+      let idx1 = floor(t);
+      let idx2 = (idx1 + 1) % eyeOuterIndices.length;
+      let f = t - idx1;
+      
+      let p1 = keypoints[eyeOuterIndices[idx1]];
+      let p2 = keypoints[eyeOuterIndices[idx2]];
+      let x1 = map(p1.x, 0, capture.width, -width * 0.25, width * 0.25);
+      let y1 = map(p1.y, 0, capture.height, -height * 0.25, height * 0.25);
+      let x2 = map(p2.x, 0, capture.width, -width * 0.25, width * 0.25);
+      let y2 = map(p2.y, 0, capture.height, -height * 0.25, height * 0.25);
+      
+      let baseX = lerp(x1, x2, f); // 睫毛的底部中心 X
+      let baseY = lerp(y1, y2, f); // 睫毛的底部中心 Y
+      
+      let dx = baseX - cxRight;
+      let dy = baseY - cyRight;
+      let dist = sqrt(dx * dx + dy * dy);
+      if (dist > 0) {
+        let nx = dx / dist, ny = dy / dist; // 向外生長的方向向量
+        let tx = -ny, ty = nx;              // 與生長方向垂直的切線向量 (用來張開三角形底部)
+        
+        let lashLen = 15; // 睫毛長度
+        let halfW = 1;    // 縮小睫毛底部寬度的一半，讓睫毛變細
+        // 畫出底寬、上尖的三角形
+        triangle(baseX + tx * halfW, baseY + ty * halfW, baseX - tx * halfW, baseY - ty * halfW, baseX + nx * lashLen, baseY + ny * lashLen);
+      }
+    }
 
     // 恢復畫筆設定，準備畫眼睛內圍
     drawingContext.shadowBlur = 0;
@@ -233,16 +274,12 @@ function draw() {
     let yFirstInner = map(pFirstInner.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLastInner, yLastInner, xFirstInner, yFirstInner);
 
-    // 畫出畫面左邊的眼睛外圍 (黑眼圈效果)
-    stroke(100, 100, 100, 150); // 設定線條為深灰色且帶有半透明
-    strokeWeight(10);        // 線條粗細改為 10
-    drawingContext.shadowBlur = 15; // 增加模糊效果
-    drawingContext.shadowColor = '#555555'; // 陰影也改為深灰色，避免太黑
-    
+    // 畫出畫面左邊的眼睛外圍
+    stroke(0); // 設定線條為黑色
+    strokeWeight(1.5); // 線條粗細改為 1.5
     for (let i = 0; i < leftEyeOuterIndices.length - 1; i++) {
       let p1 = keypoints[leftEyeOuterIndices[i]];
       let p2 = keypoints[leftEyeOuterIndices[i + 1]];
-      
       let x1 = map(p1.x, 0, capture.width, -width * 0.25, width * 0.25);
       let y1 = map(p1.y, 0, capture.height, -height * 0.25, height * 0.25);
       let x2 = map(p2.x, 0, capture.width, -width * 0.25, width * 0.25);
@@ -257,6 +294,48 @@ function draw() {
     let xFirstLeftOuter = map(pFirstLeftOuter.x, 0, capture.width, -width * 0.25, width * 0.25);
     let yFirstLeftOuter = map(pFirstLeftOuter.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLastLeftOuter, yLastLeftOuter, xFirstLeftOuter, yFirstLeftOuter);
+
+    // --- 新增：畫出左眼 20 根三角形眼睫毛 ---
+    let cxLeft = 0, cyLeft = 0;
+    for (let i = 0; i < leftEyeOuterIndices.length; i++) {
+      let p = keypoints[leftEyeOuterIndices[i]];
+      cxLeft += map(p.x, 0, capture.width, -width * 0.25, width * 0.25);
+      cyLeft += map(p.y, 0, capture.height, -height * 0.25, height * 0.25);
+    }
+    cxLeft /= leftEyeOuterIndices.length;
+    cyLeft /= leftEyeOuterIndices.length;
+
+    fill(0);
+    noStroke();
+    for (let i = 0; i < 25; i++) {
+      // 利用內插法均勻找出外圍 25 個分佈點
+      let t = i * (leftEyeOuterIndices.length / 25);
+      let idx1 = floor(t);
+      let idx2 = (idx1 + 1) % leftEyeOuterIndices.length;
+      let f = t - idx1;
+      
+      let p1 = keypoints[leftEyeOuterIndices[idx1]];
+      let p2 = keypoints[leftEyeOuterIndices[idx2]];
+      let x1 = map(p1.x, 0, capture.width, -width * 0.25, width * 0.25);
+      let y1 = map(p1.y, 0, capture.height, -height * 0.25, height * 0.25);
+      let x2 = map(p2.x, 0, capture.width, -width * 0.25, width * 0.25);
+      let y2 = map(p2.y, 0, capture.height, -height * 0.25, height * 0.25);
+      
+      let baseX = lerp(x1, x2, f);
+      let baseY = lerp(y1, y2, f);
+      
+      let dx = baseX - cxLeft;
+      let dy = baseY - cyLeft;
+      let dist = sqrt(dx * dx + dy * dy);
+      if (dist > 0) {
+        let nx = dx / dist, ny = dy / dist;
+        let tx = -ny, ty = nx;
+        
+        let lashLen = 15; // 睫毛長度
+        let halfW = 1;    // 縮小睫毛底部寬度的一半，讓睫毛變細
+        triangle(baseX + tx * halfW, baseY + ty * halfW, baseX - tx * halfW, baseY - ty * halfW, baseX + nx * lashLen, baseY + ny * lashLen);
+      }
+    }
 
     // 恢復畫筆設定，準備畫眼睛內圍
     drawingContext.shadowBlur = 0;
