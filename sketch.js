@@ -1,6 +1,8 @@
 let capture;
 let facemesh;
 let predictions = [];
+let bubbles = [];
+let seaweeds = [];
 // 嘴唇周圍的特徵點編號陣列
 const targetIndices = [409, 270, 269, 267, 0, 37, 39, 40, 185, 61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291];
 // 嘴唇內側的特徵點編號陣列
@@ -28,6 +30,32 @@ function setup() {
   // 隱藏 p5.js 預設產生的 HTML 影片元素，讓我們只在畫布中繪製
   capture.hide();
 
+  // 產生泡泡資料
+  for (let i = 0; i < 80; i++) {
+    bubbles.push({
+      x: random(-2000, 2000), // 給予足夠寬的產生範圍以適應縮放
+      y: random(-1500, 1500),
+      r: random(4, 15),
+      speed: random(1, 3),
+      offset: random(TWO_PI)
+    });
+  }
+  // 產生海草資料
+  for (let i = 0; i < 25; i++) {
+    let numSegs = floor(random(5, 12));
+    let segments = [];
+    for (let j = 0; j < numSegs; j++) {
+      segments.push({
+        length: random(30, 60),
+        offset: random(TWO_PI)
+      });
+    }
+    seaweeds.push({
+      x: random(-2000, 2000),
+      segments: segments
+    });
+  }
+
   // 開始辨識攝影機畫面
   facemesh.detectStart(capture, results => {
     predictions = results;
@@ -50,6 +78,65 @@ function draw() {
   // 第五步：利用 Facemesh 畫出指定的特徵點連線
   if (predictions.length > 0 && capture.width > 0) {
     let keypoints = predictions[0].keypoints;
+
+    // --- 新增：臉部外圍的海藍色遮罩與海洋特效 ---
+    push();
+    drawingContext.beginPath();
+    // 繪製外層超大矩形 (覆蓋整個視窗)
+    drawingContext.moveTo(-width, -height);
+    drawingContext.lineTo(width, -height);
+    drawingContext.lineTo(width, height);
+    drawingContext.lineTo(-width, height);
+    drawingContext.closePath();
+
+    // 繪製內層臉部輪廓挖空 (逆著畫以產生中空效果)
+    for (let i = faceOvalIndices.length - 1; i >= 0; i--) {
+      let p = keypoints[faceOvalIndices[i]];
+      let px = map(p.x, 0, capture.width, -width * 0.25, width * 0.25);
+      let py = map(p.y, 0, capture.height, -height * 0.25, height * 0.25);
+      if (i === faceOvalIndices.length - 1) drawingContext.moveTo(px, py);
+      else drawingContext.lineTo(px, py);
+    }
+    drawingContext.closePath();
+    drawingContext.clip('evenodd'); // 進行挖空剪裁
+
+    // 充滿海藍色背景
+    fill('#006994');
+    noStroke();
+    rect(-width, -height, width * 2, height * 2);
+
+    // 畫海草 (動態擺動)
+    stroke(46, 139, 87, 200); // 帶點半透明的海草綠色
+    strokeWeight(12);
+    noFill();
+    for (let s of seaweeds) {
+      beginShape();
+      let cx = s.x;
+      let cy = height / 2 + 50; // 從畫面底部稍微偏下開始生長
+      curveVertex(cx, cy);
+      curveVertex(cx, cy);
+      for (let i = 0; i < s.segments.length; i++) {
+        let seg = s.segments[i];
+        let wobble = sin(frameCount * 0.02 + seg.offset) * ((i + 1) * 6);
+        cx = s.x + wobble;
+        cy -= seg.length;
+        curveVertex(cx, cy);
+      }
+      curveVertex(cx, cy);
+      endShape();
+    }
+
+    // 畫泡泡 (往上飄浮)
+    fill(255, 255, 255, 120);
+    noStroke();
+    for (let b of bubbles) {
+      b.y -= b.speed;
+      b.x += sin(frameCount * 0.05 + b.offset) * 0.5;
+      if (b.y < -height / 2 - 50) b.y = height / 2 + 50; // 飄到頂端後從下方重置
+      circle(b.x, b.y, b.r * 2);
+    }
+    pop(); // 恢復剪裁範圍與畫筆設定
+    // --- 特效結束 ---
     
     stroke(255, 255, 0); // 設定線條為黃色
     strokeWeight(1);   // 設定線條粗細為 1
@@ -96,8 +183,12 @@ function draw() {
     let yFirst2 = map(pFirst2.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLast2, yLast2, xFirst2, yFirst2);
 
-    // 畫出包含 247 的眼睛外圍
-    stroke(0, 255, 255); // 設定線條為青色，方便與嘴唇區分
+    // 畫出包含 247 的眼睛外圍 (黑眼圈效果)
+    stroke(50, 50, 50, 150); // 設定線條為深灰偏黑色且帶有半透明
+    strokeWeight(10);        // 線條粗細改為 10
+    drawingContext.shadowBlur = 15; // 增加模糊效果
+    drawingContext.shadowColor = 'black';
+    
     for (let i = 0; i < eyeOuterIndices.length - 1; i++) {
       let p1 = keypoints[eyeOuterIndices[i]];
       let p2 = keypoints[eyeOuterIndices[i + 1]];
@@ -116,6 +207,11 @@ function draw() {
     let xFirstOuter = map(pFirstOuter.x, 0, capture.width, -width * 0.25, width * 0.25);
     let yFirstOuter = map(pFirstOuter.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLastOuter, yLastOuter, xFirstOuter, yFirstOuter);
+
+    // 恢復畫筆設定，準備畫眼睛內圍
+    drawingContext.shadowBlur = 0;
+    stroke(0, 255, 255); // 恢復為青色
+    strokeWeight(1);     // 恢復線條粗細為 1
 
     // 畫出包含 246 的眼睛內圍
     for (let i = 0; i < eyeInnerIndices.length - 1; i++) {
@@ -137,7 +233,12 @@ function draw() {
     let yFirstInner = map(pFirstInner.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLastInner, yLastInner, xFirstInner, yFirstInner);
 
-    // 畫出畫面左邊的眼睛外圍
+    // 畫出畫面左邊的眼睛外圍 (黑眼圈效果)
+    stroke(50, 50, 50, 150); // 設定線條為深灰偏黑色且帶有半透明
+    strokeWeight(10);        // 線條粗細改為 10
+    drawingContext.shadowBlur = 15; // 增加模糊效果
+    drawingContext.shadowColor = 'black';
+    
     for (let i = 0; i < leftEyeOuterIndices.length - 1; i++) {
       let p1 = keypoints[leftEyeOuterIndices[i]];
       let p2 = keypoints[leftEyeOuterIndices[i + 1]];
@@ -156,6 +257,11 @@ function draw() {
     let xFirstLeftOuter = map(pFirstLeftOuter.x, 0, capture.width, -width * 0.25, width * 0.25);
     let yFirstLeftOuter = map(pFirstLeftOuter.y, 0, capture.height, -height * 0.25, height * 0.25);
     line(xLastLeftOuter, yLastLeftOuter, xFirstLeftOuter, yFirstLeftOuter);
+
+    // 恢復畫筆設定，準備畫眼睛內圍
+    drawingContext.shadowBlur = 0;
+    stroke(0, 255, 255); // 恢復為青色
+    strokeWeight(1);     // 恢復線條粗細為 1
 
     // 畫出畫面左邊的眼睛內圍
     for (let i = 0; i < leftEyeInnerIndices.length - 1; i++) {
