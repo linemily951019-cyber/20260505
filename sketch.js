@@ -33,8 +33,8 @@ function setup() {
   // 產生泡泡資料
   for (let i = 0; i < 80; i++) {
     bubbles.push({
-      x: random(-2000, 2000), // 給予足夠寬的產生範圍以適應縮放
-      y: random(-1500, 1500),
+      x: random(-width * 0.25, width * 0.25), // 將產生範圍限制在視訊畫面的寬度內
+      y: random(-height * 0.25, height * 0.25), // 將產生範圍限制在視訊畫面的高度內
       r: random(4, 15),
       speed: random(1, 3),
       offset: random(TWO_PI)
@@ -51,7 +51,7 @@ function setup() {
       });
     }
     seaweeds.push({
-      x: random(-2000, 2000),
+      x: random(-width * 0.25, width * 0.25), // 限制在視訊影像的寬度內
       segments: segments
     });
   }
@@ -82,11 +82,11 @@ function draw() {
     // --- 新增：臉部外圍的海藍色遮罩與海洋特效 ---
     push();
     drawingContext.beginPath();
-    // 繪製外層超大矩形 (覆蓋整個視窗)
-    drawingContext.moveTo(-width, -height);
-    drawingContext.lineTo(width, -height);
-    drawingContext.lineTo(width, height);
-    drawingContext.lineTo(-width, height);
+    // 繪製外層矩形 (僅覆蓋視訊影像範圍，寬高為畫布的 50%)
+    drawingContext.moveTo(-width * 0.25, -height * 0.25);
+    drawingContext.lineTo(width * 0.25, -height * 0.25);
+    drawingContext.lineTo(width * 0.25, height * 0.25);
+    drawingContext.lineTo(-width * 0.25, height * 0.25);
     drawingContext.closePath();
 
     // 繪製內層臉部輪廓挖空 (逆著畫以產生中空效果)
@@ -103,7 +103,7 @@ function draw() {
     // 充滿海藍色背景
     fill('#006994');
     noStroke();
-    rect(-width, -height, width * 2, height * 2);
+    rect(-width * 0.25, -height * 0.25, width * 0.5, height * 0.5); // 將背景限制在視訊範圍
 
     // 畫海草 (動態擺動)
     stroke(46, 139, 87, 200); // 帶點半透明的海草綠色
@@ -112,7 +112,7 @@ function draw() {
     for (let s of seaweeds) {
       beginShape();
       let cx = s.x;
-      let cy = height / 2 + 50; // 從畫面底部稍微偏下開始生長
+      let cy = height * 0.25; // 從視訊畫面底部開始生長
       curveVertex(cx, cy);
       curveVertex(cx, cy);
       for (let i = 0; i < s.segments.length; i++) {
@@ -132,7 +132,7 @@ function draw() {
     for (let b of bubbles) {
       b.y -= b.speed;
       b.x += sin(frameCount * 0.05 + b.offset) * 0.5;
-      if (b.y < -height / 2 - 50) b.y = height / 2 + 50; // 飄到頂端後從下方重置
+      if (b.y < -height * 0.25 - 50) b.y = height * 0.25 + 50; // 飄到視訊頂端後從下方重置
       circle(b.x, b.y, b.r * 2);
     }
     pop(); // 恢復剪裁範圍與畫筆設定
@@ -184,10 +184,10 @@ function draw() {
     line(xLast2, yLast2, xFirst2, yFirst2);
 
     // 畫出包含 247 的眼睛外圍 (黑眼圈效果)
-    stroke(50, 50, 50, 150); // 設定線條為深灰偏黑色且帶有半透明
+    stroke(100, 100, 100, 150); // 設定線條為深灰色且帶有半透明
     strokeWeight(10);        // 線條粗細改為 10
     drawingContext.shadowBlur = 15; // 增加模糊效果
-    drawingContext.shadowColor = 'black';
+    drawingContext.shadowColor = '#555555'; // 陰影也改為深灰色，避免太黑
     
     for (let i = 0; i < eyeOuterIndices.length - 1; i++) {
       let p1 = keypoints[eyeOuterIndices[i]];
@@ -234,10 +234,10 @@ function draw() {
     line(xLastInner, yLastInner, xFirstInner, yFirstInner);
 
     // 畫出畫面左邊的眼睛外圍 (黑眼圈效果)
-    stroke(50, 50, 50, 150); // 設定線條為深灰偏黑色且帶有半透明
+    stroke(100, 100, 100, 150); // 設定線條為深灰色且帶有半透明
     strokeWeight(10);        // 線條粗細改為 10
     drawingContext.shadowBlur = 15; // 增加模糊效果
-    drawingContext.shadowColor = 'black';
+    drawingContext.shadowColor = '#555555'; // 陰影也改為深灰色，避免太黑
     
     for (let i = 0; i < leftEyeOuterIndices.length - 1; i++) {
       let p1 = keypoints[leftEyeOuterIndices[i]];
